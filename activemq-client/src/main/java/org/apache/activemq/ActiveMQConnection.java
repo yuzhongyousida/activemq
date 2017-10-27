@@ -166,6 +166,7 @@ public class ActiveMQConnection implements Connection, TopicConnection, QueueCon
     private final JMSStatsImpl factoryStats;
     private final JMSConnectionStatsImpl stats;
 
+    /* AtomicBoolean 保证了操作的原子性，在compare和set两个动作之间是不会被打断的，为多线程的控制提供了解决方案 */
     private final AtomicBoolean started = new AtomicBoolean(false);
     private final AtomicBoolean closing = new AtomicBoolean(false);
     private final AtomicBoolean closed = new AtomicBoolean(false);
@@ -225,8 +226,16 @@ public class ActiveMQConnection implements Connection, TopicConnection, QueueCon
         this.clientIdGenerator = clientIdGenerator;
         this.factoryStats = factoryStats;
 
-        // Configure a single threaded executor who's core thread can timeout if
-        // idle
+        /**
+         * ThreadPoolExecutor的核心构造器的参数详解：
+         * corePoolSize	核心线程池大小
+         * maximumPoolSize	最大线程池大小
+         * keepAliveTime	线程池中超过corePoolSize数目的空闲线程最大存活时间；可以allowCoreThreadTimeOut(true)使得核心线程有效时间
+         * TimeUnit	keepAliveTime时间单位
+         * workQueue	阻塞任务队列
+         * threadFactory	新建线程工厂
+         * RejectedExecutionHandler	当提交任务数超过maxmumPoolSize+workQueue之和时，任务会交给RejectedExecutionHandler来处理
+         */
         executor = new ThreadPoolExecutor(1, 1, 5, TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>(), new ThreadFactory() {
             @Override
             public Thread newThread(Runnable r) {
@@ -306,7 +315,7 @@ public class ActiveMQConnection implements Connection, TopicConnection, QueueCon
     /**
      * Creates a <CODE>Session</CODE> object.
      *
-     * @param transacted indicates whether the session is transacted
+     * @param transacted indicates whether the session is transacted  标示会话是否被处理
      * @param acknowledgeMode indicates whether the consumer or the client will
      *                acknowledge any messages it receives; ignored if the
      *                session is transacted. Legal values are
@@ -1378,11 +1387,13 @@ public class ActiveMQConnection implements Connection, TopicConnection, QueueCon
     }
 
     public Response syncSendPacket(Command command, int timeout) throws JMSException {
+        // close should always check
         if (isClosed()) {
             throw new ConnectionClosedException();
         } else {
 
             try {
+                // send command to broker
                 Response response = (Response)(timeout > 0
                         ? this.transport.request(command, timeout)
                         : this.transport.request(command));
@@ -1473,8 +1484,10 @@ public class ActiveMQConnection implements Connection, TopicConnection, QueueCon
             }
             //TODO shouldn't this check be on userSpecifiedClientID rather than the value of clientID?
             if (info.getClientId() == null || info.getClientId().trim().length() == 0) {
-                info.setClientId(clientIdGenerator.generateId());
+                info.setClientId(clientIdGenerator.generateId());//clientId在不特殊设置的默认情况下，是一个自增的数值
             }
+
+            // send package to broker
             syncSendPacket(info.copy(), getConnectResponseTimeout());
 
             this.isConnectionInfoSentToBroker = true;
@@ -1819,6 +1832,17 @@ public class ActiveMQConnection implements Connection, TopicConnection, QueueCon
             try {
                 command.visit(new CommandVisitorAdapter() {
                     @Override
+                    public Response processProducerAck(ProducerAck pa) throws Exception {
+                        if (pa != null && pa.getProducerId() != null) {
+                            ActiveMQMessageProducer producer = producers.get(pa.getProducerId());
+                            if (producer != null) {
+                                producer.onProducerAck(pa);
+                            }
+                        }
+                        return null;
+                    }
+
+                    @Override
                     public Response processMessageDispatch(MessageDispatch md) throws Exception {
                         waitForTransportInterruptionProcessingToComplete();
                         ActiveMQDispatcher dispatcher = dispatchers.get(md.getConsumerId());
@@ -1840,17 +1864,6 @@ public class ActiveMQConnection implements Connection, TopicConnection, QueueCon
                             dispatcher.dispatch(md);
                         } else {
                             LOG.debug("{} no dispatcher for {} in {}", this, md, dispatchers);
-                        }
-                        return null;
-                    }
-
-                    @Override
-                    public Response processProducerAck(ProducerAck pa) throws Exception {
-                        if (pa != null && pa.getProducerId() != null) {
-                            ActiveMQMessageProducer producer = producers.get(pa.getProducerId());
-                            if (producer != null) {
-                                producer.onProducerAck(pa);
-                            }
                         }
                         return null;
                     }

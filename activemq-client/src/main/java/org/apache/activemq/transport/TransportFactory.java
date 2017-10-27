@@ -116,9 +116,15 @@ public abstract class TransportFactory {
             if( !options.containsKey("wireFormat.host") ) {
                 options.put("wireFormat.host", location.getHost());
             }
+            // 协议信息解析类
             WireFormat wf = createWireFormat(options);
+
+            // 用WireFormat实例装饰Transport实例（装饰者设计模式）
             Transport transport = createTransport(location, wf);
+
+            // 对transport实例进行过滤链封装
             Transport rc = configure(transport, wf, options);
+
             //remove auto
             IntrospectionSupport.extractProperties(options, "auto.");
 
@@ -179,6 +185,7 @@ public abstract class TransportFactory {
         if (tf == null) {
             // Try to load if from a META-INF property.
             try {
+                // 根据url的前缀，生成对应的TransportFactory实例（工厂设计模式）
                 tf = (TransportFactory)TRANSPORT_FACTORY_FINDER.newInstance(scheme);
                 TRANSPORT_FACTORYS.put(scheme, tf);
             } catch (Throwable e) {
@@ -225,9 +232,11 @@ public abstract class TransportFactory {
      */
     @SuppressWarnings("rawtypes")
     public Transport configure(Transport transport, WireFormat wf, Map options) throws Exception {
-        transport = compositeConfigure(transport, wf, options);
 
+        transport = compositeConfigure(transport, wf, options);
+        // MutexTransportFilter类实现了对每个请求的同步锁，同一时间只允许发送一个请求，如果有第二个请求需要等待第一个请求发送完毕才可继续发送。
         transport = new MutexTransport(transport);
+        // ResponseCorrelator实现了异步请求但需要获取响应信息否则就会阻塞等待功能
         transport = new ResponseCorrelator(transport);
 
         return transport;

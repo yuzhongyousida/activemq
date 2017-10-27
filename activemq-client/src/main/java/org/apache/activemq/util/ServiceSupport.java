@@ -51,8 +51,11 @@ public abstract class ServiceSupport implements Service {
             boolean success = false;
             stopped.set(false);
             try {
+                // preStart、doStart方法都是子类实现的
                 preStart();
+
                 doStart();
+
                 success = true;
             } finally {
                 started.set(success);

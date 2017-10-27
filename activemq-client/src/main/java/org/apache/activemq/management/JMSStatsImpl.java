@@ -24,10 +24,10 @@ import org.apache.activemq.util.IndentPrinter;
 
 /**
  * Statistics for a number of JMS connections
- * 
- * 
+ * 统计JMS连接数的实现类
  */
 public class JMSStatsImpl extends StatsImpl {
+
     private List<ActiveMQConnection> connections = new CopyOnWriteArrayList<ActiveMQConnection>();
 
     public JMSStatsImpl() {

@@ -19,13 +19,12 @@ package org.apache.activemq.management;
 
 /**
  * Represents an object which is capable of providing some stats
- *
- * 
+ * 表示能够提供某些统计信息的对象
  */
 public interface StatsCapable {
 
     /**
-     * @return the Stats for this object
+     * 返回此对象的统计信息
      */
     StatsImpl getStats();
 }

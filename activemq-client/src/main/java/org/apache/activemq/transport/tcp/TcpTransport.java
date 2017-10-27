@@ -483,19 +483,29 @@ public class TcpTransport extends TransportThreadSupport implements Transport, S
         }
     }
 
+    /**
+     * 真正连接中心的方法
+     * @throws Exception
+     */
     @Override
     protected void doStart() throws Exception {
+        // 利用socketFactory实例属性，生成对应的socket实例，然后对其进行属性封装，然后连接center，监听消息
         connect();
+
+        // 开启停止监控
         stoppedLatch.set(new CountDownLatch(1));
+
+        // 父类的doStart方法的执行
         super.doStart();
     }
 
     protected void connect() throws Exception {
-
+        // 属性空校验
         if (socket == null && socketFactory == null) {
             throw new IllegalStateException("Cannot connect if the socket or socketFactory have not been set");
         }
 
+        // 解析brokerUrl中的host和port，生成InetSocketAddress实例
         InetSocketAddress localAddress = null;
         InetSocketAddress remoteAddress = null;
 

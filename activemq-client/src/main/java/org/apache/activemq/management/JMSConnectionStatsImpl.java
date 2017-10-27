@@ -23,7 +23,7 @@ import org.apache.activemq.util.IndentPrinter;
 
 /**
  * Statistics for a JMS connection
- * 
+ * JMS连接统计信息实现类
  * 
  */
 public class JMSConnectionStatsImpl extends StatsImpl {

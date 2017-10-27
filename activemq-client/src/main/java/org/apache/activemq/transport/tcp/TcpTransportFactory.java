@@ -139,7 +139,10 @@ public class TcpTransportFactory extends TransportFactory {
                 }
             }
         }
+        // 生成socket工厂类实例
         SocketFactory socketFactory = createSocketFactory();
+
+        // 包装transport实例对象的属性
         return createTcpTransport(wf, socketFactory, location, localLocation);
     }
 

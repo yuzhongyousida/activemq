@@ -27,18 +27,18 @@ public class ConnectionInfo extends BaseCommand {
 
     public static final byte DATA_STRUCTURE_TYPE = CommandTypes.CONNECTION_INFO;
 
-    protected ConnectionId connectionId;
-    protected String clientId;
-    protected String clientIp;
+    protected ConnectionId connectionId;//连接唯一标识
+    protected String clientId;//客户端id
+    protected String clientIp;//客户端ip
     protected String userName;
     protected String password;
-    protected BrokerId[] brokerPath;
-    protected boolean brokerMasterConnector;
-    protected boolean manageable;
-    protected boolean clientMaster = true;
-    protected boolean faultTolerant = false;
-    protected boolean failoverReconnect;
-    protected transient Object transportContext;
+    protected BrokerId[] brokerPath;//broker集群的url
+    protected boolean brokerMasterConnector;//
+    protected boolean manageable;//
+    protected boolean clientMaster = true;//
+    protected boolean faultTolerant = false;//
+    protected boolean failoverReconnect;//
+    protected transient Object transportContext;//
 
     public ConnectionInfo() {
     }

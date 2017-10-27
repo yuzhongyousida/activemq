@@ -24,14 +24,7 @@ import java.security.PrivilegedAction;
 import java.util.*;
 import java.util.concurrent.RejectedExecutionHandler;
 
-import javax.jms.Connection;
-import javax.jms.ConnectionFactory;
-import javax.jms.ExceptionListener;
-import javax.jms.JMSException;
-import javax.jms.QueueConnection;
-import javax.jms.QueueConnectionFactory;
-import javax.jms.TopicConnection;
-import javax.jms.TopicConnectionFactory;
+import javax.jms.*;
 import javax.naming.Context;
 
 import org.apache.activemq.blob.BlobTransferPolicy;
@@ -60,12 +53,16 @@ import org.slf4j.LoggerFactory;
  */
 public class ActiveMQConnectionFactory extends JNDIBaseStorable implements ConnectionFactory, QueueConnectionFactory, TopicConnectionFactory, StatsCapable, Cloneable {
     private static final Logger LOG = LoggerFactory.getLogger(ActiveMQConnectionFactory.class);
-    private static final String DEFAULT_BROKER_HOST;
-    private static final int DEFAULT_BROKER_PORT;
+    private static final String DEFAULT_BROKER_HOST;//broker默认ip
+    private static final int DEFAULT_BROKER_PORT;//broker默认端口
+
+
+    // 用jdk中security临时授权获取jvm参数中的host和port进行初始化(一般情况下，也不会在jvm参数中配置这些)
     static{
         String host = null;
         String port = null;
         try {
+            // 暂时授权给activemq框架应用来访问jvm中配置的host和port
              host = AccessController.doPrivileged(new PrivilegedAction<String>() {
                  @Override
                  public String run() {
@@ -92,8 +89,9 @@ public class ActiveMQConnectionFactory extends JNDIBaseStorable implements Conne
     }
 
 
-    public static final String DEFAULT_BROKER_BIND_URL;
+    public static final String DEFAULT_BROKER_BIND_URL;//broker默认绑定地址
 
+    // 用jdk中security临时授权获取jvm参数中的broker url
     static{
         final String defaultURL = "tcp://" + DEFAULT_BROKER_HOST + ":" + DEFAULT_BROKER_PORT;
         String bindURL = null;
@@ -114,79 +112,84 @@ public class ActiveMQConnectionFactory extends JNDIBaseStorable implements Conne
         DEFAULT_BROKER_BIND_URL = bindURL;
     }
 
-    public static final String DEFAULT_BROKER_URL = "failover://"+DEFAULT_BROKER_BIND_URL;
-    public static final String DEFAULT_USER = null;
-    public static final String DEFAULT_PASSWORD = null;
-    public static final int DEFAULT_PRODUCER_WINDOW_SIZE = 0;
+    public static final String DEFAULT_BROKER_URL = "failover://"+DEFAULT_BROKER_BIND_URL;//默认broker URL
+    public static final String DEFAULT_USER = null;//默认用户
+    public static final String DEFAULT_PASSWORD = null;//默认密码
+    public static final int DEFAULT_PRODUCER_WINDOW_SIZE = 0;//默认生产者窗口大小
 
-    protected URI brokerURL;
+    protected URI brokerURL;//broker url
+    protected boolean dispatchAsync = true;//broker端是否允许使用异步转发消息给客户端session，默认true：使用
+    protected boolean alwaysSessionAsync = true;//客户端session是否采用异步的方式传递消息给给consumer，默认true：使用
     protected String userName;
     protected String password;
     protected String clientID;
-    protected boolean dispatchAsync=true;
-    protected boolean alwaysSessionAsync=true;
 
-    JMSStatsImpl factoryStats = new JMSStatsImpl();
+    JMSStatsImpl factoryStats = new JMSStatsImpl();//提供ConnectionFactory统计信息的实现类实例
 
-    private IdGenerator clientIdGenerator;
-    private String clientIDPrefix;
-    private IdGenerator connectionIdGenerator;
-    private String connectionIDPrefix;
+    private IdGenerator clientIdGenerator;//clientId生成器
+    private String clientIDPrefix;//连接id前缀
+    private IdGenerator connectionIdGenerator;//连接id生成器
+    private String connectionIDPrefix;//连接id的前缀
 
-    // client policies
+    // 客户端预取策略
     private ActiveMQPrefetchPolicy prefetchPolicy = new ActiveMQPrefetchPolicy();
+
+    // 返还策略
     private RedeliveryPolicyMap redeliveryPolicyMap = new RedeliveryPolicyMap();
     {
         redeliveryPolicyMap.setDefaultEntry(new RedeliveryPolicy());
     }
+    //blob策略
     private BlobTransferPolicy blobTransferPolicy = new BlobTransferPolicy();
-    private MessageTransformer transformer;
 
+    private MessageTransformer transformer;//消息转换实例
     private boolean disableTimeStampsByDefault;
     private boolean optimizedMessageDispatch = true;
     private long optimizeAcknowledgeTimeOut = 300;
     private long optimizedAckScheduledAckInterval = 0;
-    private boolean copyMessageOnSend = true;
-    private boolean useCompression;
+    private boolean copyMessageOnSend = true;//是否拷贝消息
+    private boolean useCompression;//是否压缩消息
     private boolean objectMessageSerializationDefered;
-    private boolean useAsyncSend;
+    private boolean useAsyncSend;//是否异步发送消息
     private boolean optimizeAcknowledge;
-    private int closeTimeout = 15000;
+    private int closeTimeout = 15000;//关闭连接超时时间
     private boolean useRetroactiveConsumer;
     private boolean exclusiveConsumer;
     private boolean nestedMapAndListEnabled = true;
-    private boolean alwaysSyncSend;
+    private boolean alwaysSyncSend;//是否总是异步发送
     private boolean watchTopicAdvisories = true;
     private int producerWindowSize = DEFAULT_PRODUCER_WINDOW_SIZE;
     private long warnAboutUnstartedConnectionTimeout = 500L;
     private int sendTimeout = 0;
     private int connectResponseTimeout = 0;
-    private boolean sendAcksAsync=true;
-    private TransportListener transportListener;
-    private ExceptionListener exceptionListener;
+    private boolean sendAcksAsync=true;//是否发送异步ACK
+    private TransportListener transportListener;// transport监听器
+    private ExceptionListener exceptionListener;//异常监听器
     private int auditDepth = ActiveMQMessageAudit.DEFAULT_WINDOW_SIZE;
     private int auditMaximumProducerNumber = ActiveMQMessageAudit.MAXIMUM_PRODUCER_COUNT;
     private boolean useDedicatedTaskRunner;
-    private long consumerFailoverRedeliveryWaitPeriod = 0;
+    private long consumerFailoverRedeliveryWaitPeriod = 0;//当集群master宕机，重新选举master时，消费者等待重新消费的时间
     private boolean checkForDuplicates = true;
-    private ClientInternalExceptionListener clientInternalExceptionListener;
-    private boolean messagePrioritySupported = false;
+    private ClientInternalExceptionListener clientInternalExceptionListener;//消费内部监听器
+    private boolean messagePrioritySupported = false;//是否支持消息优先级
     private boolean transactedIndividualAck = false;
-    private boolean nonBlockingRedelivery = false;
-    private int maxThreadPoolSize = ActiveMQConnection.DEFAULT_THREAD_POOL_SIZE;
-    private TaskRunnerFactory sessionTaskRunner;
+    private boolean nonBlockingRedelivery = false;//是否非阻塞传输
+    private int maxThreadPoolSize = ActiveMQConnection.DEFAULT_THREAD_POOL_SIZE;//最大线程池
+    private TaskRunnerFactory sessionTaskRunner;//session任务工厂
     private RejectedExecutionHandler rejectedTaskHandler = null;
     protected int xaAckMode = -1; // ensure default init before setting via brokerUrl introspection in sub class
     private boolean rmIdFromConnectionId = false;
-    private boolean consumerExpiryCheckEnabled = true;
+    private boolean consumerExpiryCheckEnabled = true;//是否检查消费者超时
     private List<String> trustedPackages = Arrays.asList(ClassLoadingAwareObjectInputStream.serializablePackages);
     private boolean trustAllPackages = false;
 
-    // /////////////////////////////////////////////
-    //
-    // ConnectionFactory, QueueConnectionFactory, TopicConnectionFactory Methods
-    //
-    // /////////////////////////////////////////////
+
+
+
+
+
+
+    /******************** 构造器 start ********************/
 
     public ActiveMQConnectionFactory() {
         this(DEFAULT_BROKER_URL);
@@ -212,32 +215,17 @@ public class ActiveMQConnectionFactory extends JNDIBaseStorable implements Conne
         setBrokerURL(brokerURL);
     }
 
-    /**
-     * Returns a copy of the given connection factory
-     */
-    public ActiveMQConnectionFactory copy() {
-        try {
-            return (ActiveMQConnectionFactory)super.clone();
-        } catch (CloneNotSupportedException e) {
-            throw new RuntimeException("This should never happen: " + e, e);
-        }
-    }
+    /******************** 构造器 end ********************/
 
-    /*boolean*
-     * @param brokerURL
-     * @return
-     * @throws URISyntaxException
-     */
-    private static URI createURI(String brokerURL) {
-        try {
-            return new URI(brokerURL);
-        } catch (URISyntaxException e) {
-            throw (IllegalArgumentException)new IllegalArgumentException("Invalid broker URI: " + brokerURL).initCause(e);
-        }
-    }
+
+
+
+
+
+    /***********ConnectionFactory, QueueConnectionFactory, TopicConnectionFactory 接口方法实现 start*************/
 
     /**
-     * @return Returns the Connection.
+     * ConnectionFactory接口中的createConnection无参方法的实现
      */
     @Override
     public Connection createConnection() throws JMSException {
@@ -245,7 +233,7 @@ public class ActiveMQConnectionFactory extends JNDIBaseStorable implements Conne
     }
 
     /**
-     * @return Returns the Connection.
+     * ConnectionFactory接口中的createConnection有参方法的实现
      */
     @Override
     public Connection createConnection(String userName, String password) throws JMSException {
@@ -253,8 +241,7 @@ public class ActiveMQConnectionFactory extends JNDIBaseStorable implements Conne
     }
 
     /**
-     * @return Returns the QueueConnection.
-     * @throws JMSException
+     * QueueConnectionFactory接口中的createQueueConnection无参方法的实现
      */
     @Override
     public QueueConnection createQueueConnection() throws JMSException {
@@ -262,7 +249,7 @@ public class ActiveMQConnectionFactory extends JNDIBaseStorable implements Conne
     }
 
     /**
-     * @return Returns the QueueConnection.
+     * QueueConnectionFactory接口中的createQueueConnection有参方法的实现
      */
     @Override
     public QueueConnection createQueueConnection(String userName, String password) throws JMSException {
@@ -270,8 +257,7 @@ public class ActiveMQConnectionFactory extends JNDIBaseStorable implements Conne
     }
 
     /**
-     * @return Returns the TopicConnection.
-     * @throws JMSException
+     * TopicConnectionFactory接口中的createQueueConnection无参方法的实现
      */
     @Override
     public TopicConnection createTopicConnection() throws JMSException {
@@ -279,45 +265,110 @@ public class ActiveMQConnectionFactory extends JNDIBaseStorable implements Conne
     }
 
     /**
-     * @return Returns the TopicConnection.
+     * TopicConnectionFactory接口中的createQueueConnection有参方法的实现
      */
     @Override
     public TopicConnection createTopicConnection(String userName, String password) throws JMSException {
         return createActiveMQConnection(userName, password);
     }
 
+
+    /***********ConnectionFactory, QueueConnectionFactory, TopicConnectionFactory 接口方法实现 end*************/
+
+
+
+
+
     /**
-     * @return the StatsImpl associated with this ConnectionFactory.
+     * 返回与ConnectionFactory相关的统计实现类对象（主要是JMS连接数统计），StatsCapable接口方法的实现
      */
     @Override
     public StatsImpl getStats() {
         return this.factoryStats;
     }
 
-    // /////////////////////////////////////////////
-    //
-    // Implementation methods.
-    //
-    // /////////////////////////////////////////////
 
+    /*********** 创建Connection对象的核心方法 start*************/
+
+    /**
+     * 创建连接（无参）
+     */
     protected ActiveMQConnection createActiveMQConnection() throws JMSException {
         return createActiveMQConnection(userName, password);
     }
 
     /**
-     * Creates a Transport based on this object's connection settings. Separated
-     * from createActiveMQConnection to allow for subclasses to override.
-     *
-     * @return The newly created Transport.
-     * @throws JMSException If unable to create trasnport.
+     * 创建连接（有参）
+     */
+    protected ActiveMQConnection createActiveMQConnection(String userName, String password) throws JMSException {
+        if (brokerURL == null) {
+            throw new ConfigurationException("brokerURL not set.");
+        }
+        ActiveMQConnection connection = null;
+        try {
+            // 创建transport实例对象，transport是socket的封装类
+            Transport transport = createTransport();
+
+            // 创建连接对象
+            connection = createActiveMQConnection(transport, factoryStats);
+            connection.setUserName(userName);
+            connection.setPassword(password);
+
+            // 封装connection属性
+            configureConnection(connection);
+
+            // 修改连接状态并连接broker
+            transport.start();
+
+            // connection的clientId属性封装
+            if (clientID != null) {
+                connection.setDefaultClientID(clientID);
+            }
+
+            return connection;
+        } catch (JMSException e) {
+            // 连接清理
+            try {
+                connection.close();
+            } catch (Throwable ignore) {
+            }
+            throw e;
+        } catch (Exception e) {
+            // 连接清理
+            try {
+                connection.close();
+            } catch (Throwable ignore) {
+            }
+            throw JMSExceptionSupport.create("Could not connect to broker URL: " + brokerURL + ". Reason: " + e, e);
+        }
+    }
+
+    /**
+     * 创建连接（有参）
+     */
+    protected ActiveMQConnection createActiveMQConnection(Transport transport, JMSStatsImpl stats) throws Exception {
+        ActiveMQConnection connection = new ActiveMQConnection(transport, getClientIdGenerator(), getConnectionIdGenerator(), stats);
+        return connection;
+    }
+
+    /*********** 创建Connection对象的核心方法 end*************/
+
+
+
+    /**
+     * 根据connection的设置创建transport对象（从createActiveMQConnection()方法中分离出来以便子类去重写）
      */
     protected Transport createTransport() throws JMSException {
         try {
             URI connectBrokerUL = brokerURL;
-            String scheme = brokerURL.getScheme();
+            String scheme = brokerURL.getScheme();//broker url的scheme
+
+            // 空校验
             if (scheme == null) {
                 throw new IOException("Transport not scheme specified: [" + brokerURL + "]");
             }
+
+            // 对scheme的特殊设置进行替换
             if (scheme.equals("auto")) {
                 connectBrokerUL = new URI(brokerURL.toString().replace("auto", "tcp"));
             } else if (scheme.equals("auto+ssl")) {
@@ -328,59 +379,18 @@ public class ActiveMQConnectionFactory extends JNDIBaseStorable implements Conne
                 connectBrokerUL = new URI(brokerURL.toString().replace("auto+nio+ssl", "nio+ssl"));
             }
 
+            // 根据broker URL对应的URI创建transport实例
             return TransportFactory.connect(connectBrokerUL);
+
         } catch (Exception e) {
             throw JMSExceptionSupport.create("Could not create Transport. Reason: " + e, e);
         }
     }
 
+
     /**
-     * @return Returns the Connection.
+     * 封装connection属性
      */
-    protected ActiveMQConnection createActiveMQConnection(String userName, String password) throws JMSException {
-        if (brokerURL == null) {
-            throw new ConfigurationException("brokerURL not set.");
-        }
-        ActiveMQConnection connection = null;
-        try {
-            Transport transport = createTransport();
-            connection = createActiveMQConnection(transport, factoryStats);
-
-            connection.setUserName(userName);
-            connection.setPassword(password);
-
-            configureConnection(connection);
-
-            transport.start();
-
-            if (clientID != null) {
-                connection.setDefaultClientID(clientID);
-            }
-
-            return connection;
-        } catch (JMSException e) {
-            // Clean up!
-            try {
-                connection.close();
-            } catch (Throwable ignore) {
-            }
-            throw e;
-        } catch (Exception e) {
-            // Clean up!
-            try {
-                connection.close();
-            } catch (Throwable ignore) {
-            }
-            throw JMSExceptionSupport.create("Could not connect to broker URL: " + brokerURL + ". Reason: " + e, e);
-        }
-    }
-
-    protected ActiveMQConnection createActiveMQConnection(Transport transport, JMSStatsImpl stats) throws Exception {
-        ActiveMQConnection connection = new ActiveMQConnection(transport, getClientIdGenerator(),
-                getConnectionIdGenerator(), stats);
-        return connection;
-    }
-
     protected void configureConnection(ActiveMQConnection connection) throws JMSException {
         connection.setPrefetchPolicy(getPrefetchPolicy());
         connection.setDisableTimeStampsByDefault(isDisableTimeStampsByDefault());
@@ -434,11 +444,8 @@ public class ActiveMQConnectionFactory extends JNDIBaseStorable implements Conne
         }
     }
 
-    // /////////////////////////////////////////////
-    //
-    // Property Accessors
-    //
-    // /////////////////////////////////////////////
+    /****************** 属性 set 方法 start *********************/
+
 
 	public String getBrokerURL() {
         return brokerURL == null ? null : brokerURL.toString();
@@ -505,9 +512,7 @@ public class ActiveMQConnectionFactory extends JNDIBaseStorable implements Conne
     }
 
     /**
-     * Sets the JMS clientID to use for the created connection. Note that this
-     * can only be used by one connection at once so generally its a better idea
-     * to set the clientID on a Connection
+     * 设置JMS clientID用于创建connection（注意：一个clientId只能用于一次连接，一般更好的是在一个连接中设置一次）
      */
     public void setClientID(String clientID) {
         this.clientID = clientID;
@@ -518,10 +523,7 @@ public class ActiveMQConnectionFactory extends JNDIBaseStorable implements Conne
     }
 
     /**
-     * Should a JMS message be copied to a new JMS Message object as part of the
-     * send() method in JMS. This is enabled by default to be compliant with the
-     * JMS specification. You can disable it if you do not mutate JMS messages
-     * after they are sent for a performance boost
+     * JMS消息应该copy一份作为新的JMS消息对象已成为send()方法的一部分。默认情况下，这是符合JMS规范的，如果你想发送性能提升可以关闭掉
      */
     public void setCopyMessageOnSend(boolean copyMessageOnSend) {
         this.copyMessageOnSend = copyMessageOnSend;
@@ -983,6 +985,9 @@ public class ActiveMQConnectionFactory extends JNDIBaseStorable implements Conne
         this.clientIDPrefix = clientIDPrefix;
     }
 
+    /**
+     * 生成clientId的generator类初始化，在构建Connection实例的时候作为参数
+     */
     protected synchronized IdGenerator getClientIdGenerator() {
         if (clientIdGenerator == null) {
             if (clientIDPrefix != null) {
@@ -1006,6 +1011,10 @@ public class ActiveMQConnectionFactory extends JNDIBaseStorable implements Conne
         this.connectionIDPrefix = connectionIDPrefix;
     }
 
+    /**
+     * connetionId 生成器对象
+     * @return
+     */
     protected synchronized IdGenerator getConnectionIdGenerator() {
         if (connectionIdGenerator == null) {
             if (connectionIDPrefix != null) {
@@ -1286,4 +1295,68 @@ public class ActiveMQConnectionFactory extends JNDIBaseStorable implements Conne
 	public void setConnectResponseTimeout(int connectResponseTimeout) {
 		this.connectResponseTimeout = connectResponseTimeout;
 	}
+
+
+    /**
+     * 返回connection Factory实例的copy对象
+     */
+    public ActiveMQConnectionFactory copy() {
+        try {
+            return (ActiveMQConnectionFactory)super.clone();
+        } catch (CloneNotSupportedException e) {
+            throw new RuntimeException("This should never happen: " + e, e);
+        }
+    }
+
+    /**
+     * 根据brokerUrl生成对应的URI对象
+     */
+    private static URI createURI(String brokerURL) {
+        try {
+            return new URI(brokerURL);
+        } catch (URISyntaxException e) {
+            throw (IllegalArgumentException)new IllegalArgumentException("Invalid broker URI: " + brokerURL).initCause(e);
+        }
+    }
+
+
+
+    public static void main(String[] args){
+        try {
+
+            ConnectionFactory connectionFactory = new ActiveMQConnectionFactory("tcp://localhost:61616");
+
+            // 简单工厂模式创建了连接工厂类的实例
+            // 连接工厂类的实例创建连接，并用装饰模式给连接实例实例属性赋值
+            Connection connection = connectionFactory.createConnection();
+
+            // Transport对象中的socket实例连接broker并监听端口传输数据
+            connection.start();
+
+            // 创建connection对象的session实例
+            Session session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
+
+            // 创建producer实例
+            MessageProducer producer = session.createProducer(session
+                    .createQueue("testQueue"));
+
+            // 创建message实例
+            Message message = (Message) session.createTextMessage("hello everybody!");
+
+            // 发送消息
+            producer.send(message);
+
+            producer.close();
+
+            session.close();
+
+            connection.close();
+
+        }catch (Exception e){
+            e.printStackTrace();
+        }
+    }
+
+
+
 }

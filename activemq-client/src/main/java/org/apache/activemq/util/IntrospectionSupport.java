@@ -93,6 +93,13 @@ public final class IntrospectionSupport {
         return rc;
     }
 
+    /**
+     * 利用Java反射将props中的k-v对封装成target对象的对应属性值，然后将k-v对从props中移除
+     * @param target
+     * @param props
+     * @param optionPrefix
+     * @return
+     */
     public static boolean setProperties(Object target, Map<String, ?> props, String optionPrefix) {
         boolean rc = false;
         if (target == null) {
@@ -116,6 +123,12 @@ public final class IntrospectionSupport {
         return rc;
     }
 
+    /**
+     * 去除map的key值中的前缀字符串
+     * @param props
+     * @param optionPrefix
+     * @return
+     */
     public static Map<String, Object> extractProperties(Map props, String optionPrefix) {
         if (props == null) {
             throw new IllegalArgumentException("props was null.");

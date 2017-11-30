@@ -23,7 +23,7 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Defines the prefetch message policies for different types of consumers
- *
+ * 为不同类型的消费者定义定义消息预取策略
  * @org.apache.xbean.XBean element="prefetchPolicy"
  *
  */

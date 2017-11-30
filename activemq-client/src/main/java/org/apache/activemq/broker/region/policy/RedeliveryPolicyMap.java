@@ -26,7 +26,7 @@ import org.apache.activemq.filter.DestinationMapEntry;
  * Represents a destination based configuration of policies so that individual
  * destinations or wildcard hierarchies of destinations can be configured using
  * different policies.
- * 
+ * 表示基于配置的destination，以便可以使用不同的策略配置单个destination或通配符结构的destination
  * @org.apache.xbean.XBean
  * 
  * 

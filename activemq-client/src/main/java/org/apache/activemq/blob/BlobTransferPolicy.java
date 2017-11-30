@@ -24,7 +24,7 @@ import java.net.URL;
  * The policy for configuring how BLOBs (Binary Large OBjects) are transferred
  * out of band between producers, brokers and consumers.
  *
- * 
+ * 二进制大对象如何在producer、broker、consumer之间传输、转移的策略配置类
  */
 public class BlobTransferPolicy {
     private String defaultUploadUrl = "http://localhost:8080/uploads/";

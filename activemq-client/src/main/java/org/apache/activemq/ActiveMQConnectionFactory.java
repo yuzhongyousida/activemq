@@ -206,12 +206,16 @@ public class ActiveMQConnectionFactory extends JNDIBaseStorable implements Conne
     public ActiveMQConnectionFactory(String userName, String password, URI brokerURL) {
         setUserName(userName);
         setPassword(password);
+
+        // 根据brokerurl配置ActiveMQPrefetchPolicy、RedeliveryPolicy、BlobTransferPolicy四个对象属性和ActiveMQConnectionFactory自身的其他属性
         setBrokerURL(brokerURL.toString());
     }
 
     public ActiveMQConnectionFactory(String userName, String password, String brokerURL) {
         setUserName(userName);
         setPassword(password);
+
+        // 根据brokerurl配置ActiveMQPrefetchPolicy、RedeliveryPolicy、BlobTransferPolicy四个对象属性和ActiveMQConnectionFactory自身的其他属性
         setBrokerURL(brokerURL);
     }
 
@@ -452,23 +456,26 @@ public class ActiveMQConnectionFactory extends JNDIBaseStorable implements Conne
     }
 
     /**
-     * Sets the <a
-     * href="http://activemq.apache.org/configuring-transports.html">connection
-     * URL</a> used to connect to the ActiveMQ broker.
+     * 根据brokerurl配置ActiveMQPrefetchPolicy、RedeliveryPolicy、BlobTransferPolicy四个对象属性和ActiveMQConnectionFactory自身的其他属性
+     * @param brokerURL
      */
     public void setBrokerURL(String brokerURL) {
         this.brokerURL = createURI(brokerURL);
 
-        // Use all the properties prefixed with 'jms.' to set the connection
-        // factory
-        // options.
+        // brokerURL中有配置query参数时
         if (this.brokerURL.getQuery() != null) {
-            // It might be a standard URI or...
-            try {
 
+            try {
+                // 获取brokerUrl中的query参数的k-v
                 Map<String,String> map = URISupport.parseQuery(this.brokerURL.getQuery());
+
+                // 去掉broker url中配置的query参数key值字符串中的"jms."前缀
                 Map<String,Object> jmsOptionsMap = IntrospectionSupport.extractProperties(map, "jms.");
+
+                // 给对应对象的对应属性封装属性，来源从jmsOptionsMap中，能匹配上的，封装完属性后，从jmsOptionsMap中remove掉
                 if (buildFromMap(jmsOptionsMap)) {
+
+                    // 还有多余的属性没有匹配封装上，即非法属性，异常出去
                     if (!jmsOptionsMap.isEmpty()) {
                         String msg = "There are " + jmsOptionsMap.size()
                             + " jms options that couldn't be set on the ConnectionFactory."
@@ -485,8 +492,7 @@ public class ActiveMQConnectionFactory extends JNDIBaseStorable implements Conne
             }
 
         } else {
-
-            // It might be a composite URI.
+            // brokerURL中没有配置query参数时
             try {
                 CompositeData data = URISupport.parseComposite(this.brokerURL);
                 Map<String,Object> jmsOptionsMap = IntrospectionSupport.extractProperties(data.getParameters(), "jms.");
@@ -767,27 +773,36 @@ public class ActiveMQConnectionFactory extends JNDIBaseStorable implements Conne
         buildFromMap(p);
     }
 
+    /**
+     * 去掉map的key值字符串中的"prefetchPolicy." 、"redeliveryPolicy."、 "blobTransferPolicy." 三个前缀，同时封装对应的对象属性
+     * @param properties
+     * @return
+     */
     public boolean buildFromMap(Map<String, Object> properties) {
         boolean rc = false;
 
+        // 利用Java反射将properties中的"prefetchPolicy."前缀去掉，同事将新的k-v封装成ActiveMQPrefetchPolicy对象的对应属性值，然后将k-v对从properties中移除
         ActiveMQPrefetchPolicy p = new ActiveMQPrefetchPolicy();
         if (IntrospectionSupport.setProperties(p, properties, "prefetchPolicy.")) {
             setPrefetchPolicy(p);
             rc = true;
         }
 
+        // 利用Java反射将properties中的"redeliveryPolicy."前缀去掉，同事将新的k-v封装成RedeliveryPolicy对象的对应属性值，然后将k-v对从properties中移除
         RedeliveryPolicy rp = new RedeliveryPolicy();
         if (IntrospectionSupport.setProperties(rp, properties, "redeliveryPolicy.")) {
             setRedeliveryPolicy(rp);
             rc = true;
         }
 
+        // 利用Java反射将properties中的"blobTransferPolicy."前缀去掉，同事将新的k-v封装成BlobTransferPolicy对象的对应属性值，然后将k-v对从properties中移除
         BlobTransferPolicy blobTransferPolicy = new BlobTransferPolicy();
         if (IntrospectionSupport.setProperties(blobTransferPolicy, properties, "blobTransferPolicy.")) {
             setBlobTransferPolicy(blobTransferPolicy);
             rc = true;
         }
 
+        // 除去前面三个前缀的k-v对之外，properties中其余的k-v对都作为ActiveMQConnectionFactory自身的属性进行封装，能匹配的封装完毕之后从map中remove掉
         rc |= IntrospectionSupport.setProperties(this, properties);
 
         return rc;
@@ -1337,8 +1352,7 @@ public class ActiveMQConnectionFactory extends JNDIBaseStorable implements Conne
             Session session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
 
             // 创建producer实例
-            MessageProducer producer = session.createProducer(session
-                    .createQueue("testQueue"));
+            MessageProducer producer = session.createProducer(session.createQueue("testQueue"));
 
             // 创建message实例
             Message message = (Message) session.createTextMessage("hello everybody!");

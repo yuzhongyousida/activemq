@@ -21,7 +21,7 @@ import java.io.IOException;
 
 /**
  * An asynchronous listener of commands
- *
+ * 命令的异步监听listener
  * 
  */
 public interface TransportListener {
@@ -39,14 +39,14 @@ public interface TransportListener {
     
     /**
      * The transport has suffered an interuption from which it hopes to recover
-     *
+     * 中断时进行恢复的方法
      */
     void transportInterupted();
     
     
     /**
      * The transport has resumed after an interuption
-     *
+     * 传输中断的恢复
      */
     void transportResumed();
     

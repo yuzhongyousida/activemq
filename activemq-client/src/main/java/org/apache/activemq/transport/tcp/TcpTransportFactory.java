@@ -48,17 +48,28 @@ public class TcpTransportFactory extends TransportFactory {
 
     private static final Logger LOG = LoggerFactory.getLogger(TcpTransportFactory.class);
 
+
+    /**
+     * doBind方法实现
+     */
     @Override
     public TransportServer doBind(final URI location) throws IOException {
         try {
             Map<String, String> options = new HashMap<String, String>(URISupport.parseParameters(location));
 
+            // 创建 ServerSocketFactory实例
             ServerSocketFactory serverSocketFactory = createServerSocketFactory();
+
+            // 用ServerSocketFactory实例创建ServerSocketFactory实例
             TcpTransportServer server = createTcpTransportServer(location, serverSocketFactory);
+
+            // 属性配置
             server.setWireFormatFactory(createWireFormatFactory(options));
             IntrospectionSupport.setProperties(server, options);
             Map<String, Object> transportOptions = IntrospectionSupport.extractProperties(options, "transport.");
             server.setTransportOption(transportOptions);
+
+            // socket server端bind对一个的host和端口
             server.bind();
 
             return server;
@@ -70,12 +81,6 @@ public class TcpTransportFactory extends TransportFactory {
     /**
      * Allows subclasses of TcpTransportFactory to create custom instances of
      * TcpTransportServer.
-     *
-     * @param location
-     * @param serverSocketFactory
-     * @return a new TcpTransportServer instance.
-     * @throws IOException
-     * @throws URISyntaxException
      */
     protected TcpTransportServer createTcpTransportServer(final URI location, ServerSocketFactory serverSocketFactory) throws IOException, URISyntaxException {
         return new TcpTransportServer(this, location, serverSocketFactory);
@@ -121,11 +126,14 @@ public class TcpTransportFactory extends TransportFactory {
         return true;
     }
 
+    /**
+     * 重载创建Transport对象
+     */
     @Override
     protected Transport createTransport(URI location, WireFormat wf) throws UnknownHostException, IOException {
         URI localLocation = null;
         String path = location.getPath();
-        // see if the path is a local URI location
+
         if (path != null && path.length() > 0) {
             int localPortIndex = path.indexOf(':');
             try {

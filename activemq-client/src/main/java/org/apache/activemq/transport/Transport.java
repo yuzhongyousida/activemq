@@ -26,6 +26,8 @@ import org.apache.activemq.wireformat.WireFormat;
 /**
  * Represents the client side of a transport allowing messages to be sent
  * synchronously, asynchronously and consumed.
+ *
+ * 客户端的允许消息被同步、异步的发送和消费的transport接口
  */
 public interface Transport extends Service {
 

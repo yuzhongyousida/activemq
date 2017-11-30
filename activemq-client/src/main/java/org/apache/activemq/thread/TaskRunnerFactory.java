@@ -43,8 +43,10 @@ import org.slf4j.LoggerFactory;
 public class TaskRunnerFactory implements Executor {
 
     private static final Logger LOG = LoggerFactory.getLogger(TaskRunnerFactory.class);
-    private final AtomicReference<ExecutorService> executorRef = new AtomicReference<>();
-    private int maxIterationsPerRun;
+
+
+    private final AtomicReference<ExecutorService> executorRef = new AtomicReference<>();// 线程执行类的原子操作对象属性
+    private int maxIterationsPerRun;// 每次运行时的最大迭代次数
     private String name;
     private int priority;
     private boolean daemon;

@@ -43,22 +43,25 @@ public abstract class TransportFactory {
     private static final String WRITE_TIMEOUT_FILTER = "soWriteTimeout";
     private static final String THREAD_NAME_FILTER = "threadName";
 
+
     public abstract TransportServer doBind(URI location) throws IOException;
 
+    /**
+     * 创建normal transport对象
+     */
     public Transport doConnect(URI location, Executor ex) throws Exception {
         return doConnect(location);
     }
 
+    /**
+     * 创建简化版高传输效率的transport对象
+     */
     public Transport doCompositeConnect(URI location, Executor ex) throws Exception {
         return doCompositeConnect(location);
     }
 
     /**
-     * Creates a normal transport.
-     *
-     * @param location
-     * @return the transport
-     * @throws Exception
+     * 创建normal Transport对象
      */
     public static Transport connect(URI location) throws Exception {
         TransportFactory tf = findTransportFactory(location);
@@ -66,12 +69,7 @@ public abstract class TransportFactory {
     }
 
     /**
-     * Creates a normal transport.
-     *
-     * @param location
-     * @param ex
-     * @return the transport
-     * @throws Exception
+     * 创建normal Transport对象
      */
     public static Transport connect(URI location, Executor ex) throws Exception {
         TransportFactory tf = findTransportFactory(location);
@@ -81,10 +79,7 @@ public abstract class TransportFactory {
     /**
      * Creates a slimmed down transport that is more efficient so that it can be
      * used by composite transports like reliable and HA.
-     *
-     * @param location
-     * @return the Transport
-     * @throws Exception
+     * 创建一个精简版的传输效率更高的Transport对象，可以被复合的transport如HA等使用
      */
     public static Transport compositeConnect(URI location) throws Exception {
         TransportFactory tf = findTransportFactory(location);
@@ -92,27 +87,28 @@ public abstract class TransportFactory {
     }
 
     /**
-     * Creates a slimmed down transport that is more efficient so that it can be
-     * used by composite transports like reliable and HA.
-     *
-     * @param location
-     * @param ex
-     * @return the Transport
-     * @throws Exception
+     * 创建精简版transport对象
      */
     public static Transport compositeConnect(URI location, Executor ex) throws Exception {
         TransportFactory tf = findTransportFactory(location);
         return tf.doCompositeConnect(location, ex);
     }
 
+    /**
+     * 创建TransportServer对象
+     */
     public static TransportServer bind(URI location) throws IOException {
         TransportFactory tf = findTransportFactory(location);
         return tf.doBind(location);
     }
 
+    /**
+     * 创建normal transport对象
+     */
     public Transport doConnect(URI location) throws Exception {
         try {
             Map<String, String> options = new HashMap<String, String>(URISupport.parseParameters(location));
+
             if( !options.containsKey("wireFormat.host") ) {
                 options.put("wireFormat.host", location.getHost());
             }
@@ -125,7 +121,7 @@ public abstract class TransportFactory {
             // 对transport实例进行过滤链封装
             Transport rc = configure(transport, wf, options);
 
-            //remove auto
+            //去除选项属性中的"auto."前缀
             IntrospectionSupport.extractProperties(options, "auto.");
 
             if (!options.isEmpty()) {
@@ -137,12 +133,19 @@ public abstract class TransportFactory {
         }
     }
 
+    /**
+     * 创建精简版的transport对象
+     */
     public Transport doCompositeConnect(URI location) throws Exception {
         try {
             Map<String, String> options = new HashMap<String, String>(URISupport.parseParameters(location));
+
             WireFormat wf = createWireFormat(options);
+
             Transport transport = createTransport(location, wf);
+
             Transport rc = compositeConfigure(transport, wf, options);
+
             if (!options.isEmpty()) {
                 throw new IllegalArgumentException("Invalid connect parameters: " + options);
             }
@@ -152,42 +155,39 @@ public abstract class TransportFactory {
         }
     }
 
-     /**
-      * Allow registration of a transport factory without wiring via META-INF classes
-     * @param scheme
-     * @param tf
-     */
+
+
     public static void registerTransportFactory(String scheme, TransportFactory tf) {
         TRANSPORT_FACTORYS.put(scheme, tf);
-      }
+    }
 
-    /**
-     * Factory method to create a new transport
-     *
-     * @throws IOException
-     * @throws UnknownHostException
-     */
+
     protected Transport createTransport(URI location, WireFormat wf) throws MalformedURLException, UnknownHostException, IOException {
         throw new IOException("createTransport() method not implemented!");
     }
 
     /**
-     * @param location
-     * @return
-     * @throws IOException
+     * 根据URI前缀生成对应的TransportFactory实例（工厂模式）
      */
     public static TransportFactory findTransportFactory(URI location) throws IOException {
         String scheme = location.getScheme();
         if (scheme == null) {
             throw new IOException("Transport not scheme specified: [" + location + "]");
         }
+
         TransportFactory tf = TRANSPORT_FACTORYS.get(scheme);
+
         if (tf == null) {
-            // Try to load if from a META-INF property.
             try {
-                // 根据url的前缀，生成对应的TransportFactory实例（工厂设计模式）
+                /**
+                 * 在META-INF/services/org/apache/activemq/transport/路径下对应的tcp、udp等文件中，
+                 * 取出其中class对应的值，该值是各个schema对应的transport具体实现类的包路径
+                 * 然后利用Java反射机制生成对应transport类的实例对象
+                 */
                 tf = (TransportFactory)TRANSPORT_FACTORY_FINDER.newInstance(scheme);
+
                 TRANSPORT_FACTORYS.put(scheme, tf);
+
             } catch (Throwable e) {
                 throw IOExceptionSupport.create("Transport scheme NOT recognized: [" + scheme + "]", e);
             }
@@ -195,6 +195,9 @@ public abstract class TransportFactory {
         return tf;
     }
 
+    /**
+     * 根据选项配置参数生成对应的WireFormat对象
+     */
     protected WireFormat createWireFormat(Map<String, String> options) throws IOException {
         WireFormatFactory factory = createWireFormatFactory(options);
         WireFormat format = factory.createWireFormat();
@@ -221,21 +224,16 @@ public abstract class TransportFactory {
     }
 
     /**
-     * Fully configures and adds all need transport filters so that the
-     * transport can be used by the JMS client.
-     *
-     * @param transport
-     * @param wf
-     * @param options
-     * @return
-     * @throws Exception
+     * 客户端transport属性配置，同时添加对应的transport filter
      */
     @SuppressWarnings("rawtypes")
     public Transport configure(Transport transport, WireFormat wf, Map options) throws Exception {
-
+        //
         transport = compositeConfigure(transport, wf, options);
+
         // MutexTransportFilter类实现了对每个请求的同步锁，同一时间只允许发送一个请求，如果有第二个请求需要等待第一个请求发送完毕才可继续发送。
         transport = new MutexTransport(transport);
+
         // ResponseCorrelator实现了异步请求但需要获取响应信息否则就会阻塞等待功能
         transport = new ResponseCorrelator(transport);
 
@@ -243,39 +241,29 @@ public abstract class TransportFactory {
     }
 
     /**
-     * Fully configures and adds all need transport filters so that the
-     * transport can be used by the ActiveMQ message broker. The main difference
-     * between this and the configure() method is that the broker does not issue
-     * requests to the client so the ResponseCorrelator is not needed.
-     *
-     * @param transport
-     * @param format
-     * @param options
-     * @return
-     * @throws Exception
+     * 服务端端transport属性配置，同时添加对应的transport filters，broker使用
+     * 这和configure()方法之间的主要区别是，broker不发请求到客户端，不需要responsecorrelator
      */
     @SuppressWarnings("rawtypes")
     public Transport serverConfigure(Transport transport, WireFormat format, HashMap options) throws Exception {
+
         if (options.containsKey(THREAD_NAME_FILTER)) {
             transport = new ThreadNameFilter(transport);
         }
         transport = compositeConfigure(transport, format, options);
+
         transport = new MutexTransport(transport);
+
         return transport;
     }
 
     /**
-     * Similar to configure(...) but this avoid adding in the MutexTransport and
-     * ResponseCorrelator transport layers so that the resulting transport can
-     * more efficiently be used as part of a composite transport.
-     *
-     * @param transport
-     * @param format
-     * @param options
-     * @return
+     * transport属性配置
      */
     @SuppressWarnings("rawtypes")
     public Transport compositeConfigure(Transport transport, WireFormat format, Map options) {
+
+        // 配置参数中若包含soWriteTimeout，则将transport对象封装成WriteTimeoutFilter并设置WriteTimeout属性
         if (options.containsKey(WRITE_TIMEOUT_FILTER)) {
             transport = new WriteTimeoutFilter(transport);
             String soWriteTimeout = (String)options.remove(WRITE_TIMEOUT_FILTER);
@@ -283,7 +271,10 @@ public abstract class TransportFactory {
                 ((WriteTimeoutFilter)transport).setWriteTimeout(Long.parseLong(soWriteTimeout));
             }
         }
+
+        // 利用Java反射机制给transport对象属性赋值
         IntrospectionSupport.setProperties(transport, options);
+
         return transport;
     }
 

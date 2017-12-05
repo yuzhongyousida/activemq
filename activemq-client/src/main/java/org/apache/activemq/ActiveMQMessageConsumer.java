@@ -140,22 +140,23 @@ public class ActiveMQMessageConsumer implements MessageAvailableConsumer, StatsC
     /**
      * Create a MessageConsumer
      *
-     * @param session
-     * @param dest
-     * @param name
+     * @param session consumer所处的session
+     * @param dest consumer对应的目的地
+     * @param name consumer的名称
      * @param selector
-     * @param prefetch
-     * @param maximumPendingMessageCount
+     * @param prefetch 预取值大小
+     * @param maximumPendingMessageCount 最大挂起消息数
      * @param noLocal
      * @param browser
-     * @param dispatchAsync
-     * @param messageListener
+     * @param dispatchAsync 是否异步分发
+     * @param messageListener 消息监听器
      * @throws JMSException
      */
     public ActiveMQMessageConsumer(ActiveMQSession session, ConsumerId consumerId, ActiveMQDestination dest,
             String name, String selector, int prefetch,
             int maximumPendingMessageCount, boolean noLocal, boolean browser,
             boolean dispatchAsync, MessageListener messageListener) throws JMSException {
+        //
         if (dest == null) {
             throw new InvalidDestinationException("Don't understand null destinations");
         } else if (dest.getPhysicalName() == null) {

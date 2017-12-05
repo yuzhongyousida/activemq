@@ -31,6 +31,8 @@ import org.slf4j.LoggerFactory;
  * A utility class used by the Session for dispatching messages asynchronously
  * to consumers
  *
+ * session向其下的consumer们异步发送消息的工具类
+ *
  * @see javax.jms.Session
  */
 public class ActiveMQSessionExecutor implements Task {
@@ -44,9 +46,12 @@ public class ActiveMQSessionExecutor implements Task {
 
     ActiveMQSessionExecutor(ActiveMQSession session) {
         this.session = session;
+        // 支持消息优先级
         if (this.session.connection != null && this.session.connection.isMessagePrioritySupported()) {
-           this.messageQueue = new SimplePriorityMessageDispatchChannel();
+            //优先级消息分发通道
+            this.messageQueue = new SimplePriorityMessageDispatchChannel();
         }else {
+            //先入先出消息分发通道
             this.messageQueue = new FifoMessageDispatchChannel();
         }
     }
@@ -61,6 +66,7 @@ public class ActiveMQSessionExecutor implements Task {
         if (!startedOrWarnedThatNotStarted) {
 
             ActiveMQConnection connection = session.connection;
+            // 警告未开始的连接的超时时间
             long aboutUnstartedConnectionTimeout = connection.getWarnAboutUnstartedConnectionTimeout();
             if (connection.isStarted() || aboutUnstartedConnectionTimeout < 0L) {
                 startedOrWarnedThatNotStarted = true;
@@ -77,14 +83,19 @@ public class ActiveMQSessionExecutor implements Task {
             }
         }
 
+        // 若不是有session池分发且不是异步分发，则立即dispatch；否则进入队列
         if (!session.isSessionAsyncDispatch() && !dispatchedBySessionPool) {
             dispatch(message);
         } else {
             messageQueue.enqueue(message);
+            // 唤醒线程
             wakeup();
         }
     }
 
+    /**
+     * 唤醒其他线程？？？
+     */
     public void wakeup() {
         if (!dispatchedBySessionPool) {
             if (session.isSessionAsyncDispatch()) {
@@ -93,16 +104,20 @@ public class ActiveMQSessionExecutor implements Task {
                     if (taskRunner == null) {
                         synchronized (this) {
                             if (this.taskRunner == null) {
+                                // 消息通道是非运行状态
                                 if (!isRunning()) {
-                                    // stop has been called
                                     return;
                                 }
+
+                                // 新增线程runner属性
                                 this.taskRunner = session.connection.getSessionTaskRunner().createTaskRunner(this,
                                         "ActiveMQ Session: " + session.getSessionId());
                             }
                             taskRunner = this.taskRunner;
                         }
                     }
+
+                    // 唤醒其他线程
                     taskRunner.wakeup();
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
@@ -123,6 +138,10 @@ public class ActiveMQSessionExecutor implements Task {
         return !messageQueue.isClosed() && messageQueue.isRunning() && !messageQueue.isEmpty();
     }
 
+    /**
+     * 消息分发
+     * @param message
+     */
     void dispatch(MessageDispatch message) {
         // TODO - we should use a Map for this indexed by consumerId
         for (ActiveMQMessageConsumer consumer : this.session.consumers) {
